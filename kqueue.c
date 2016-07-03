@@ -1,16 +1,27 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/fs.h>
+
+#include <linux/device.h>
 #include <linux/cdev.h>
+#include <linux/fs.h>
 #include <linux/slab.h>
+
 #include <asm/uaccess.h>
 
-#define MAX_MSG      0x10000
-#define MAX_QUEUE    0x00400
+#define KQUEUE       "kqueue"
+#define DEVPUSH      "kqueue-push"
+#define DEVPOP       "kqueue-pop"
 
-static        dev_t  ndev;
-static struct cdev  *cdev;
+#define MAX_MSG       0x10000
+#define MAX_QUEUE     0x00400
+
+static        dev_t   rdev;
+static struct class  *class;
+static struct cdev   *cdev_push;
+static struct cdev   *cdev_pop;
+static struct device *dev_push;
+static struct device *dev_pop;
 
 static        char   buffer[MAX_MSG];
 static        size_t buffer_sz;
@@ -62,33 +73,61 @@ kqueue_fo_write(struct file *file, const char *data, size_t size, loff_t *pos)
 }
 
 static struct
-file_operations fops = {
+file_operations fops_push = {
     .owner   = THIS_MODULE,
-    .read    = kqueue_fo_read,
     .write   = kqueue_fo_write
+};
+
+static struct
+file_operations fops_pop = {
+    .owner   = THIS_MODULE,
+    .read   = kqueue_fo_read
 };
 
 static int
 kqueue_init(void)
 {
-    int rcode = alloc_chrdev_region(&ndev, 0, 1, "kqueue");
+    int rcode = alloc_chrdev_region(&rdev, 0, 1, KQUEUE);
     if(rcode < 0) {
         printk(KERN_ALERT "kqueue: alloc_chrdev_region() failed\n");
         return rcode;
     }
-    printk(KERN_INFO "kqueue: major number of our device is %d\n", MAJOR(ndev));
-    printk(KERN_INFO "kqueue: to use mknod /dev/%s c %d 0\n",      "kqueue", MAJOR(ndev));
 
-    cdev = cdev_alloc();
-    cdev->owner = THIS_MODULE;
-    cdev->ops   = &fops;
-
-    rcode = cdev_add(cdev, ndev, 1);
-    if(rcode < 0) {
-        printk(KERN_ALERT "kqueue: device adding to the kernel failed\n");
-        return rcode;
+    class = class_create(THIS_MODULE, KQUEUE);
+    if (class == NULL) {
+        printk(KERN_ALERT "kqueue: can't create device class\n");
+        unregister_chrdev_region(rdev, 1);
+        return -1;
     }
 
+    dev_push  = device_create(class, NULL, MKDEV(MAJOR(rdev), 0), NULL, DEVPUSH);
+    cdev_push = cdev_alloc();
+    cdev_push->owner = THIS_MODULE;
+    cdev_push->ops   = &fops_push;
+    int r_push = cdev_add(cdev_push, MKDEV(MAJOR(rdev), 0), 1);
+
+    dev_pop   = device_create(class, NULL, MKDEV(MAJOR(rdev), 1), NULL, DEVPOP);
+    cdev_pop  = cdev_alloc();
+    cdev_pop->owner = THIS_MODULE;
+    cdev_pop->ops   = &fops_pop;
+    int r_pop = cdev_add(cdev_pop,  MKDEV(MAJOR(rdev), 1), 1);
+
+#if 0
+    if (!dev_push || !dev_pop) {
+        printk(KERN_ALERT "kqueue: can't create device\n");
+        class_destroy(class);
+        unregister_chrdev_region(rdev, 1);
+        return -1;
+    }
+
+    if ((r_push < 0) || (r_pop < 0)) {
+        printk(KERN_ALERT "kqueue: device adding to the kernel failed\n");
+        device_destroy(class, rdev);
+        class_destroy(class);
+        unregister_chrdev_region(rdev, 1);
+        return rcode;
+    }
+#endif
     buffer_sz = snprintf(buffer, MAX_MSG, "%s\n", "buffer initial value");
 
     printk(KERN_INFO "kqueue: initialized properly\n");
@@ -99,8 +138,14 @@ kqueue_init(void)
 static void
 kqueue_exit(void)
 {
-    cdev_del(cdev);
-    unregister_chrdev_region(ndev,1);
+    device_destroy(class, MKDEV(MAJOR(rdev), 0));
+    cdev_del(cdev_push);
+
+    device_destroy(class, MKDEV(MAJOR(rdev), 1));
+    cdev_del(cdev_pop);
+
+    class_destroy(class);
+    unregister_chrdev_region(rdev, 1);
 
     printk(KERN_INFO "kqueue: deinitialized properly\n");
 }
