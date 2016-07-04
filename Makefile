@@ -1,7 +1,11 @@
+TARGET_MODULE := kqueue
+
 KDIR := /lib/modules/$(shell uname -r)/build
 
 ccflags-y := -std=gnu99 -Wno-declaration-after-statement
-obj-m     += kqueue.o
+
+$(TARGET_MODULE)-objs := kqueue-queue.o kqueue-chrdev.o kqueue-file.o
+obj-m                 := $(TARGET_MODULE).o
 
 all:
 	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules

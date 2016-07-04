@@ -9,8 +9,8 @@ static char message[0x10000];
 
 int main()
 {
-    const char *fname = "/dev/kqueue-pop";
-    int popfd = open(fname, O_RDONLY);
+    const char *popfn = "/dev/kqueue-pop";
+    int popfd = open(popfn, O_RDONLY);
 
     int                epfd = epoll_create(1);
     struct epoll_event epev;
