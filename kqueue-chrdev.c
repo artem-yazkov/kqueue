@@ -81,6 +81,7 @@ chrdev_fo_write(struct file *file, const char *data, size_t size, loff_t *pos)
 
     kqueue_push_back(&mdata, size);
     if (mdata == NULL)
+        /* queue is full; with cache subsystem we should never care about */
         return -EFAULT;
 
     if (copy_from_user(mdata, data, size) != 0)

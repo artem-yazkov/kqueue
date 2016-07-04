@@ -4,7 +4,7 @@
 #include <linux/types.h>
 
 #define MAX_MSIZE     0x10000
-#define MAX_QLEN      0x00400
+#define MAX_QLEN      0x00004
 
 int    kqueue_init (char *cache_storage, int cache_async);
 void   kqueue_free (void);
