@@ -15,10 +15,10 @@ int main()
         return 1;
     }
 
-    char msgfn [PATH_MAX];
-    char format[32];
+    static char msgfn [PATH_MAX];
+    static char format[32];
 
-    snprintf(format, sizeof(format), "%%%lus", sizeof(msgfn));
+    snprintf(format, sizeof(format)-1, "%%%lus", sizeof(msgfn)-1);
 
     while (fscanf(stdin, format, msgfn) == 1) {
 
