@@ -1,0 +1,6 @@
+HOWTO:
+
+ *) make
+ *) insmod ./kqueue.ko
+ *) ./kqueue-popd
+ *) ./kqueue-push
