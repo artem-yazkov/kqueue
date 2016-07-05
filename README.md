@@ -20,3 +20,11 @@ Kernel Queue test module
 
 * Finally, push something into queue. Run with root: `ls *.c | ./kqueue-push `
 
+* Just check content of files: `popmsg-*`
+
+* P.S. You can work with queue without userspace programs. Stop pop daemon & type something like this:
+   
+   1. `echo "first message"| sudo tee /dev/kqueue-push`
+   2. `echo "second message"| sudo tee /dev/kqueue-push`
+   3. `sudo cat /dev/kqueue-pop`
+   4. `sudo cat /dev/kqueue-pop`
