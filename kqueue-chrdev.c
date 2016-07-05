@@ -41,7 +41,6 @@ chrdev_fo_poll(struct file *file, struct poll_table_struct *poll_table)
 static ssize_t
 chrdev_fo_read(struct file *file, char *data, size_t size, loff_t *pos)
 {
-    printk(KERN_INFO "chrdev_fo_read; pos: %lld\n", *pos);
     if (*pos > 0) {
         *pos = 0;
         return 0;

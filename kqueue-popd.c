@@ -63,8 +63,8 @@ void help (void)
     printf("Options: \n");
     printf("  --help     Show this help & exit\n");
     printf("  --debug    Debug mode\n");
-    printf("  --storage  Directory to store received messages; default: %s\n", STORDIR);
-    printf("  --chardev  Character device to communicate with kernel default: %s\n", CHARDEV);
+    printf("  --storage  Directory to store received messages. \"%s\" by default\n", STORDIR);
+    printf("  --chardev  Character device to communicate with kernel. \"%s\" by default\n", CHARDEV);
     printf("\n");
 }
 

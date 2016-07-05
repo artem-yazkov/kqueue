@@ -11,7 +11,7 @@ int main()
     int pushfd = open(pushfn, O_WRONLY);
 
     if (pushfd == -1) {
-        fprintf(stderr, "can't open %s for write; exit(1)\n");
+        fprintf(stderr, "can't open %s for write; exit(1)\n", pushfn);
         return 1;
     }
 
