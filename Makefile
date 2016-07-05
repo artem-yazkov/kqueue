@@ -13,5 +13,6 @@ all:
 	$(MAKE) kqueue-push.c ./kqueue-push
 
 clean:
+	rm -rf kqueue-popd kqueue-push popmsg-*
 	rm -rf *.o *.ko *.mod.* *.cmd .module* modules* Module* .*.cmd .tmp*
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
