@@ -1,5 +1,6 @@
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/kernel.h>
 
 #include <linux/device.h>
@@ -12,9 +13,18 @@
 
 #include "kqueue-queue.h"
 
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("artem.yazkov@gmail.com");
+
 #define KQUEUE       "kqueue"
 #define DEVPUSH      "kqueue-push"
 #define DEVPOP       "kqueue-pop"
+
+static        char   *cache_storage = "/tmp/kqueue-cache";
+static        int     cache_async;
+
+module_param(cache_storage, charp, S_IRUSR | S_IRGRP | S_IROTH);
+module_param(cache_async,   int,   S_IRUSR | S_IRGRP | S_IROTH);
 
 static        dev_t   rdev;
 static struct class  *class;
@@ -22,8 +32,11 @@ static struct cdev   *cdev_push;
 static struct cdev   *cdev_pop;
 static struct device *dev_push;
 static struct device *dev_pop;
+static struct mutex   mutex_push;
+static struct mutex   mutex_pop;
 
 static DECLARE_WAIT_QUEUE_HEAD(wait_read);
+
 
 static unsigned int
 chrdev_fo_poll(struct file *file, struct poll_table_struct *poll_table)
@@ -92,17 +105,55 @@ chrdev_fo_write(struct file *file, const char *data, size_t size, loff_t *pos)
     return size;
 }
 
+static int
+chrdev_fo_push_open(struct inode *inode, struct file *filp)
+{
+    if (!mutex_trylock(&mutex_push)) {
+        printk(KERN_ALERT "kqueue: %s device has been opened already\n", DEVPUSH);
+        return -EBUSY;
+    }
+    return 0;
+}
+
+static int
+chrdev_fo_push_close(struct inode *inode, struct file *filp)
+{
+    mutex_unlock(&mutex_push);
+    return 0;
+}
+
+static int
+chrdev_fo_pop_open(struct inode *inode, struct file *filp)
+{
+    if (!mutex_trylock(&mutex_pop)) {
+        printk(KERN_ALERT "kqueue: %s device has been opened already\n", DEVPOP);
+        return -EBUSY;
+    }
+    return 0;
+}
+
+static int
+chrdev_fo_pop_close(struct inode *inode, struct file *filp)
+{
+    mutex_unlock(&mutex_pop);
+    return 0;
+}
+
 static struct
 file_operations fops_push = {
     .owner   = THIS_MODULE,
-    .write   = chrdev_fo_write
+    .write   = chrdev_fo_write,
+    .open    = chrdev_fo_push_open,
+    .release = chrdev_fo_push_close
 };
 
 static struct
 file_operations fops_pop = {
-    .owner  = THIS_MODULE,
-    .poll   = chrdev_fo_poll,
-    .read   = chrdev_fo_read
+    .owner   = THIS_MODULE,
+    .poll    = chrdev_fo_poll,
+    .read    = chrdev_fo_read,
+    .open    = chrdev_fo_pop_open,
+    .release = chrdev_fo_pop_close
 };
 
 static int
@@ -143,10 +194,14 @@ chrdev_init(void)
         return -1;
     }
 
-    if (kqueue_init("/tmp/kqueue-cache", 0) < 0)
+    mutex_init(&mutex_pop);
+    mutex_init(&mutex_push);
+
+    if (kqueue_init(cache_storage, cache_async) < 0)
         return -1;
 
-    printk(KERN_INFO "kqueue: initialized properly\n");
+    printk(KERN_INFO "kqueue: initialized properly (async: %s)\n",
+           cache_async ? "on" : "off");
 
     return 0;
 }
@@ -155,6 +210,9 @@ static void
 chrdev_exit(void)
 {
     kqueue_free();
+
+    mutex_destroy(&mutex_pop);
+    mutex_destroy(&mutex_push);
 
     device_destroy(class, MKDEV(MAJOR(rdev), 0));
     cdev_del(cdev_push);
@@ -171,5 +229,3 @@ chrdev_exit(void)
 module_init(chrdev_init);
 module_exit(chrdev_exit);
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("artem.yazkov@gmail.com");
